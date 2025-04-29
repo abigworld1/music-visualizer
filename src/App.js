@@ -164,24 +164,28 @@ export default function App() {
     return sum / dataArray.length;
   };
 
-  // Remove .wav extension from filename
-  const removeWavExtension = (filename) => {
-    return filename.replace(/\.wav$/i, "");
-  };
-
   const handleFileChange = (event) => {
     const file = event.target.files[0];
-    if (file && file.name.toLowerCase().endsWith(".wav")) {
-      const url = URL.createObjectURL(file);
-      setAudioFile(url);
-      setFileName(file.name);
-      setDisplayName(removeWavExtension(file.name));
-
-      if (audioRef.current) {
-        audioRef.current.src = url;
+    if (file) {
+      // ファイル名を小文字に変換して拡張子をチェック
+      const fileName = file.name.toLowerCase();
+      // 許可する音声ファイルの拡張子を増やす
+      const validExtensions = ['.wav', '.mp3', '.ogg', '.m4a', '.aac', '.flac', '.mp4'];
+      const isValidAudio = validExtensions.some(ext => fileName.endsWith(ext));
+      
+      if (isValidAudio || file.type.startsWith('audio/')) {
+        const url = URL.createObjectURL(file);
+        setAudioFile(url);
+        setFileName(file.name);
+        // 拡張子を削除して表示名を設定
+        setDisplayName(file.name.replace(/\.[^/.]+$/, ""));
+  
+        if (audioRef.current) {
+          audioRef.current.src = url;
+        }
+      } else {
+        alert("Please upload an audio file (WAV, MP3, OGG, M4A, AAC, FLAC supported)");
       }
-    } else {
-      alert("Please upload a .wav file");
     }
   };
 
@@ -553,7 +557,7 @@ export default function App() {
       <div className="input-section">
         <input
           type="file"
-          accept=".wav"
+          accept="audio/*,.wav,.mp3,.ogg,.m4a,.aac,.flac"
           onChange={handleFileChange}
           id="file-input"
           className="file-input"
