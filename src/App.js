@@ -171,7 +171,7 @@ export default function App() {
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
-    if (file && file.type === "audio/wav") {
+    if (file && file.name.toLowerCase().endsWith(".wav")) {
       const url = URL.createObjectURL(file);
       setAudioFile(url);
       setFileName(file.name);
