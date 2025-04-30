@@ -332,28 +332,43 @@ export default function App() {
         const amplitudeScale = waveAmplitude / 100;
         const volumeFactor = Math.max(0.2, Math.min(1.5, avgVolume / 128));
 
+        // 十分な振幅があるか確認するためのフラグ
+        let hasSignificantAmplitude = false;
+        
+        // 振幅が一定のしきい値を超えているか調べる
         for (let i = 0; i < bufferLength; i++) {
-          const deviation =
-            (timeDataArray[i] - waveBaseline) * amplitudeScale * volumeFactor;
-
-          const smoothedValue =
-            prevWaveData[i] * 0.3 + (waveBaseline + deviation) * 0.7;
-          prevWaveData[i] = smoothedValue;
-
-          const y =
-            HEIGHT / 2 + ((smoothedValue - waveBaseline) * HEIGHT) / 256;
-
-          if (i === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
+          const amplitude = Math.abs(timeDataArray[i] - waveBaseline);
+          if (amplitude * amplitudeScale * volumeFactor > 2) {
+            hasSignificantAmplitude = true;
+            break;
           }
-
-          x += sliceWidth;
-          if (x > WIDTH) break;
         }
 
-        ctx.stroke();
+        // 振幅が十分ある場合のみ波形を描画
+        if (hasSignificantAmplitude) {
+          for (let i = 0; i < bufferLength; i++) {
+            const deviation =
+              (timeDataArray[i] - waveBaseline) * amplitudeScale * volumeFactor;
+
+            const smoothedValue =
+              prevWaveData[i] * 0.3 + (waveBaseline + deviation) * 0.7;
+            prevWaveData[i] = smoothedValue;
+
+            const y =
+              HEIGHT / 2 + ((smoothedValue - waveBaseline) * HEIGHT) / 256;
+
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+
+            x += sliceWidth;
+            if (x > WIDTH) break;
+          }
+
+          ctx.stroke();
+        }
       }
 
       // Snow particles visualization with enhanced audio reactivity
