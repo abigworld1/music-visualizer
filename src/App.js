@@ -2,12 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import "./App.css";
 
 export default function App() {
-  // デフォルトの音楽ファイルのパスを設定
-  const defaultAudioPath = "/audio/edge-of-knowledge.wav";
-  
-  const [audioFile, setAudioFile] = useState(defaultAudioPath);
-  const [fileName, setFileName] = useState("edge-of-knowledge.wav");
-  const [displayName, setDisplayName] = useState("edge-of-knowledge");
+  const [audioFile, setAudioFile] = useState(null);
+  const [fileName, setFileName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFileName, setShowFileName] = useState(true);
   const [fontSize, setFontSize] = useState(16);
@@ -72,6 +69,31 @@ export default function App() {
     return () => window.removeEventListener("resize", setCanvasDimensions);
   }, []);
 
+  // useEffectの追加：コンポーネントマウント時にデフォルトオーディオをロード
+  useEffect(() => {
+    // デフォルトオーディオファイルのパスを設定
+    const defaultAudioPath = "/audio/edge-of-knowledge.wav";
+    setAudioFile(defaultAudioPath);
+    setFileName("edge-of-knowledge.wav");
+    setDisplayName("edge-of-knowledge");
+    
+    if (audioRef.current) {
+      audioRef.current.src = defaultAudioPath;
+      
+      // 自動再生のセットアップ
+      setupAudioContext();
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+          visualize();
+        })
+        .catch(err => {
+          console.error("自動再生に失敗しました:", err);
+          // エラーが発生した場合は自動再生を試みないようにする
+        });
+    }
+  }, []);
+
   // Initialize particles
   useEffect(() => {
     initParticles();
@@ -81,67 +103,6 @@ export default function App() {
   useEffect(() => {
     initGridCells();
   }, [gridCellSize]);
-
-  // ページ読み込み時に音声を自動再生するための新しいuseEffect
-  useEffect(() => {
-    // オーディオ要素がマウントされた後に実行
-    if (audioRef.current) {
-      // オーディオのソースをデフォルトパスに設定
-      audioRef.current.src = defaultAudioPath;
-      
-      // ユーザーとのインタラクション後に再生を試みる
-      // 注意: ブラウザのポリシーにより、ユーザーインタラクションなしでの自動再生は制限されている場合があります
-      const autoPlayAudio = () => {
-        // AudioContextの設定
-        setupAudioContext();
-        
-        // 音声の再生を試みる
-        const playPromise = audioRef.current.play();
-        
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              // 再生成功
-              setIsPlaying(true);
-              visualize();
-              console.log("自動再生が成功しました");
-            })
-            .catch((error) => {
-              // 自動再生が失敗した場合（一般的にブラウザポリシーによる）
-              console.log("自動再生に失敗しました:", error);
-              // ここでユーザーに再生ボタンをクリックするよう促すメッセージを表示することも可能
-            });
-        }
-      };
-
-      // ページの読み込みが完了した時点で自動再生を試みる
-      window.addEventListener('load', autoPlayAudio);
-      
-      // ユーザーとのインタラクションイベントをリッスンして、その後に再生を試みる
-      const interactionEvents = ['click', 'touchstart', 'keydown'];
-      const interactionHandler = () => {
-        if (!isPlaying) {
-          autoPlayAudio();
-          // 一度再生を試みたら、これらのイベントリスナーを削除
-          interactionEvents.forEach(event => {
-            window.removeEventListener(event, interactionHandler);
-          });
-        }
-      };
-      
-      interactionEvents.forEach(event => {
-        window.addEventListener(event, interactionHandler);
-      });
-      
-      // クリーンアップ関数
-      return () => {
-        window.removeEventListener('load', autoPlayAudio);
-        interactionEvents.forEach(event => {
-          window.removeEventListener(event, interactionHandler);
-        });
-      };
-    }
-  }, []);
 
   // Refresh animation when font or visualization changes
   useEffect(() => {
@@ -269,21 +230,18 @@ export default function App() {
   };
 
   const togglePlay = () => {
+    if (!audioFile) return;
+
     if (isPlaying) {
       audioRef.current.pause();
       cancelAnimationFrame(animationRef.current);
-      setIsPlaying(false);
     } else {
       setupAudioContext();
-      audioRef.current.play()
-        .then(() => {
-          setIsPlaying(true);
-          visualize();
-        })
-        .catch(error => {
-          console.error("音声再生エラー:", error);
-        });
+      audioRef.current.play();
+      visualize();
     }
+
+    setIsPlaying(!isPlaying);
   };
 
   const handleVisualChange = (type) => {
@@ -642,6 +600,7 @@ export default function App() {
         <div className="control-row">
           <button
             onClick={togglePlay}
+            disabled={!audioFile}
             className={`control-button ${!audioFile ? "disabled" : ""}`}
           >
             {isPlaying ? "Pause" : "Play"}
