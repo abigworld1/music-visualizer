@@ -11,11 +11,11 @@ export default function App() {
   const [selectedFont, setSelectedFont] = useState("Arial, sans-serif");
   const [selectedVisuals, setSelectedVisuals] = useState({
     bars: true,
-    circles: false,
-    waves: false,
-    particles: false,
-    polarLines: false,
-    spectrogramGrid: false, // 新しい視覚化オプションを追加
+    circles: true,
+    waves: true,
+    particles: true,
+    polarLines: true,
+    spectrogramGrid: true, // 新しい視覚化オプションを追加
   });
   const [waveAmplitude, setWaveAmplitude] = useState(50);
   const [waveBaseline, setWaveBaseline] = useState(128);
