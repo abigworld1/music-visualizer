@@ -5,6 +5,8 @@ export default function App() {
   const [audioFile, setAudioFile] = useState(null);
   const [fileName, setFileName] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [customText, setCustomText] = useState(""); // カスタムテキスト用の状態
+  const [useCustomText, setUseCustomText] = useState(false); // カスタムテキストを使用するかどうかのフラグ
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFileName, setShowFileName] = useState(true);
   const [fontSize, setFontSize] = useState(16);
@@ -15,16 +17,16 @@ export default function App() {
     waves: true,
     particles: true,
     polarLines: true,
-    spectrogramGrid: true, // 新しい視覚化オプションを追加
+    spectrogramGrid: true,
   });
   const [waveAmplitude, setWaveAmplitude] = useState(50);
   const [waveBaseline, setWaveBaseline] = useState(128);
   const [particleCount, setParticleCount] = useState(50);
   const [snowSize, setSnowSize] = useState(3);
-  const [lineCount, setLineCount] = useState(60); // 放射状ラインの数
-  const [lineLength, setLineLength] = useState(50); // ラインの長さ係数
-  const [gridCellSize, setGridCellSize] = useState(20); // グリッドセルのサイズ
-  const [gridSensitivity, setGridSensitivity] = useState(50); // グリッド感度
+  const [lineCount, setLineCount] = useState(60);
+  const [lineLength, setLineLength] = useState(50);
+  const [gridCellSize, setGridCellSize] = useState(20);
+  const [gridSensitivity, setGridSensitivity] = useState(50);
 
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -98,7 +100,7 @@ export default function App() {
       cancelAnimationFrame(animationRef.current);
       visualize();
     }
-  }, [fontSize, selectedFont, showFileName]);
+  }, [fontSize, selectedFont, showFileName, useCustomText, customText]);
 
   useEffect(() => {
     if (isPlaying && analyserRef.current) {
@@ -565,12 +567,19 @@ export default function App() {
         });
       }
 
-      // Display filename
-      if (showFileName && displayName) {
-        ctx.font = `${fontSize}px ${selectedFont}`;
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
-        ctx.fillText(displayName, WIDTH / 2, HEIGHT / 2);
+      // Display text (filename or custom text)
+      if (showFileName) {
+        // テキストを表示する場合
+        const textToDisplay = useCustomText && customText.trim() !== "" 
+          ? customText 
+          : displayName;
+        
+        if (textToDisplay) {
+          ctx.font = `${fontSize}px ${selectedFont}`;
+          ctx.fillStyle = "white";
+          ctx.textAlign = "center";
+          ctx.fillText(textToDisplay, WIDTH / 2, HEIGHT / 2);
+        }
       }
     };
 
@@ -615,10 +624,49 @@ export default function App() {
                 checked={showFileName}
                 onChange={() => setShowFileName(!showFileName)}
               />
-              Show Filename
+              Show Text
             </label>
           </div>
         </div>
+
+        {/* テキスト設定セクション */}
+        {showFileName && (
+          <div className="control-row">
+            <div className="control-group text-display-option">
+              <label>
+                <input
+                  type="radio"
+                  checked={!useCustomText}
+                  onChange={() => setUseCustomText(false)}
+                />
+                Use Filename
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={useCustomText}
+                  onChange={() => setUseCustomText(true)}
+                />
+                Use Custom Text
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* カスタムテキスト入力フィールド（カスタムテキストモードが選択されている場合のみ表示） */}
+        {showFileName && useCustomText && (
+          <div className="control-row">
+            <div className="text-input-container">
+              <input
+                type="text"
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                placeholder="Enter your custom text"
+                className="custom-text-input"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Font settings */}
         <div className="control-row">
