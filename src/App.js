@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import "./App.css";
 
 export default function App() {
-  const [audioFile, setAudioFile] = useState(null);
-  const [fileName, setFileName] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [audioFile, setAudioFile] = useState("music/edge of knowledge.wav");
+  const [fileName, setFileName] = useState("edge of knowledge.wav");
+  const [displayName, setDisplayName] = useState("edge of knowledge");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFileName, setShowFileName] = useState(true);
   const [fontSize, setFontSize] = useState(16);
@@ -15,16 +15,17 @@ export default function App() {
     waves: false,
     particles: false,
     polarLines: false,
-    spectrogramGrid: false, // 新しい視覚化オプションを追加
+    spectrogramGrid: false,
   });
   const [waveAmplitude, setWaveAmplitude] = useState(50);
   const [waveBaseline, setWaveBaseline] = useState(128);
   const [particleCount, setParticleCount] = useState(50);
   const [snowSize, setSnowSize] = useState(3);
-  const [lineCount, setLineCount] = useState(60); // 放射状ラインの数
-  const [lineLength, setLineLength] = useState(50); // ラインの長さ係数
-  const [gridCellSize, setGridCellSize] = useState(20); // グリッドセルのサイズ
-  const [gridSensitivity, setGridSensitivity] = useState(50); // グリッド感度
+  const [lineCount, setLineCount] = useState(60);
+  const [lineLength, setLineLength] = useState(50);
+  const [gridCellSize, setGridCellSize] = useState(20);
+  const [gridSensitivity, setGridSensitivity] = useState(50);
+  const [isDefaultLoaded, setIsDefaultLoaded] = useState(true);
 
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -103,6 +104,24 @@ export default function App() {
     gridSensitivity,
   ]);
 
+  // Load default audio file
+  useEffect(() => {
+    if (audioRef.current && isDefaultLoaded) {
+      audioRef.current.src = audioFile;
+      audioRef.current.addEventListener('loadeddata', () => {
+        console.log("Default audio file loaded successfully");
+      });
+      audioRef.current.addEventListener('error', (e) => {
+        console.error("Error loading default audio file:", e);
+        // Reset to allow user to select their own file
+        setAudioFile(null);
+        setFileName("");
+        setDisplayName("");
+        setIsDefaultLoaded(false);
+      });
+    }
+  }, [audioFile, isDefaultLoaded]);
+
   // Snow particle initialization
   const initParticles = () => {
     if (!canvasRef.current) return;
@@ -127,7 +146,7 @@ export default function App() {
     particlesRef.current = particles;
   };
 
-  // グリッドセルの初期化
+  // Grid cell initialization
   const initGridCells = () => {
     if (!canvasRef.current) return;
 
@@ -167,9 +186,9 @@ export default function App() {
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // ファイル名を小文字に変換して拡張子をチェック
+      // Convert filename to lowercase and check extension
       const fileName = file.name.toLowerCase();
-      // 許可する音声ファイルの拡張子を増やす
+      // Allow various audio file extensions
       const validExtensions = ['.wav', '.mp3', '.ogg', '.m4a', '.aac', '.flac', '.mp4'];
       const isValidAudio = validExtensions.some(ext => fileName.endsWith(ext));
       
@@ -177,9 +196,10 @@ export default function App() {
         const url = URL.createObjectURL(file);
         setAudioFile(url);
         setFileName(file.name);
-        // 拡張子を削除して表示名を設定
+        // Remove extension for display name
         setDisplayName(file.name.replace(/\.[^/.]+$/, ""));
-  
+        setIsDefaultLoaded(false);
+
         if (audioRef.current) {
           audioRef.current.src = url;
         }
@@ -413,35 +433,35 @@ export default function App() {
         const centerY = HEIGHT / 2;
         const maxLength = Math.min(WIDTH, HEIGHT) * (lineLength / 100);
 
-        // 周波数データを放射状のラインに分配
+        // Distribute frequency data to radial lines
         const step = Math.floor(bufferLength / lineCount);
 
-        // 放射状ラインを描画
+        // Draw radial lines
         for (let i = 0; i < lineCount; i++) {
           const angle = (i / lineCount) * Math.PI * 2;
           const dataIndex = i * step;
 
-          // 音量に基づいてラインの長さを決定（スムージング適用）
+          // Determine line length based on volume (with smoothing)
           const rawValue = dataArray[dataIndex % bufferLength] / 255;
           const smoothedValue = prevPolarData[i] * 0.3 + rawValue * 0.7;
           prevPolarData[i] = smoothedValue;
 
           const length = smoothedValue * maxLength;
 
-          // ラインの座標を計算
+          // Calculate line coordinates
           const x1 = centerX;
           const y1 = centerY;
           const x2 = centerX + Math.cos(angle) * length;
           const y2 = centerY + Math.sin(angle) * length;
 
-          // ラインの太さを音量に基づいて変える
+          // Line thickness based on volume
           const lineWidth = 1 + smoothedValue * 4;
 
-          // ラインの明るさも音量に基づいて変える
+          // Line brightness based on volume
           const brightness = 150 + Math.floor(smoothedValue * 105);
           const opacity = 0.3 + smoothedValue * 0.6;
 
-          // ラインを描画
+          // Draw line
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
@@ -449,7 +469,7 @@ export default function App() {
           ctx.lineWidth = lineWidth;
           ctx.stroke();
 
-          // フェードアウト効果のあるサブライン
+          // Fade-out effect with subline
           if (smoothedValue > 0.2) {
             const subLength = length * 1.3;
             const x3 = centerX + Math.cos(angle) * subLength;
@@ -467,38 +487,38 @@ export default function App() {
         }
       }
 
-      // スペクトログラムグリッド視覚化（新しい視覚化）
+      // Spectrogram Grid visualization
       if (selectedVisuals.spectrogramGrid) {
         const cells = gridCellsRef.current;
-        const sensitivity = gridSensitivity / 100; // 感度を0-1の範囲に正規化
+        const sensitivity = gridSensitivity / 100; // Normalize sensitivity to 0-1 range
 
-        // 周波数データを分析してグリッドのエネルギーを更新
+        // Analyze frequency data to update grid energy
         const frequencyStep = Math.floor(bufferLength / cells.length);
 
         cells.forEach((cell, index) => {
-          // 周波数データからエネルギーを計算
+          // Calculate energy from frequency data
           const dataIndex = (index * frequencyStep) % bufferLength;
-          const rawEnergy = (dataArray[dataIndex] / 255) * sensitivity * 2; // 感度を適用
+          const rawEnergy = (dataArray[dataIndex] / 255) * sensitivity * 2; // Apply sensitivity
 
-          // スムージングを適用
+          // Apply smoothing
           cell.targetEnergy = rawEnergy;
           cell.energy = cell.energy * 0.7 + cell.targetEnergy * 0.3;
 
-          // エネルギーに応じてグリッドセルを描画
+          // Draw grid cell based on energy
           if (cell.energy > 0.05) {
-            // 閾値を設定してノイズを減らす
-            const size = cell.size * Math.min(0.9, cell.energy * 0.8); // 最大サイズの制限
+            // Set threshold to reduce noise
+            const size = cell.size * Math.min(0.9, cell.energy * 0.8); // Limit max size
             const x = cell.x + (cell.size - size) / 2;
             const y = cell.y + (cell.size - size) / 2;
 
-            // エネルギーに応じて明るさを変える
+            // Brightness based on energy
             const brightness = 100 + Math.floor(cell.energy * 155);
             const opacity = Math.min(0.9, 0.2 + cell.energy * 0.7);
 
-            // グリッドセルを描画
+            // Draw grid cell
             ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, ${opacity})`;
 
-            // 正方形ではなく円を描画してモダンな印象に
+            // Draw circle instead of square for modern look
             ctx.beginPath();
             ctx.arc(
               cell.x + cell.size / 2,
@@ -509,14 +529,14 @@ export default function App() {
             );
             ctx.fill();
 
-            // エネルギーが高い場合はアウトラインも描画
+            // Draw outline for high energy
             if (cell.energy > 0.4) {
               ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.6})`;
               ctx.lineWidth = 1;
               ctx.stroke();
             }
 
-            // 強いエネルギーの場合、パルス効果を追加
+            // Add pulse effect for very high energy
             if (cell.energy > 0.7) {
               const pulseSize = size * 1.3;
               const pulseX = cell.x + (cell.size - pulseSize) / 2;
@@ -563,12 +583,14 @@ export default function App() {
           className="file-input"
         />
         <label htmlFor="file-input" className="file-input-label">
-          Choose .wav file
+          Choose audio file
         </label>
       </div>
 
       {fileName && (
-        <div className="file-info">Selected file: {displayName}</div>
+        <div className="file-info">
+          {isDefaultLoaded ? "Default file: " : "Selected file: "}{displayName}
+        </div>
       )}
 
       <div className="control-panel">
@@ -772,7 +794,7 @@ export default function App() {
           </>
         )}
 
-        {/* スペクトログラムグリッド設定 (only shown if Spectrogram Grid is selected) */}
+        {/* Spectrogram Grid settings (only shown if Spectrogram Grid is selected) */}
         {selectedVisuals.spectrogramGrid && (
           <>
             <div className="control-row">
