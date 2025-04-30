@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import "./App.css";
 
 export default function App() {
-  // デフォルトの音声ファイルのパスを設定
-  const defaultAudioPath = "/audio/edge of knowledge.wav";
+  // デフォルトの音楽ファイルのパスを設定
+  const defaultAudioPath = "/audio/edge-of-knowledge.wav";
   
   const [audioFile, setAudioFile] = useState(defaultAudioPath);
-  const [fileName, setFileName] = useState("edge of knowledge.wav");
-  const [displayName, setDisplayName] = useState("edge of knowledge");
+  const [fileName, setFileName] = useState("edge-of-knowledge.wav");
+  const [displayName, setDisplayName] = useState("edge-of-knowledge");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFileName, setShowFileName] = useState(true);
   const [fontSize, setFontSize] = useState(16);
@@ -18,17 +18,16 @@ export default function App() {
     waves: false,
     particles: false,
     polarLines: false,
-    spectrogramGrid: false,
+    spectrogramGrid: false, // 新しい視覚化オプションを追加
   });
   const [waveAmplitude, setWaveAmplitude] = useState(50);
   const [waveBaseline, setWaveBaseline] = useState(128);
   const [particleCount, setParticleCount] = useState(50);
   const [snowSize, setSnowSize] = useState(3);
-  const [lineCount, setLineCount] = useState(60);
-  const [lineLength, setLineLength] = useState(50);
-  const [gridCellSize, setGridCellSize] = useState(20);
-  const [gridSensitivity, setGridSensitivity] = useState(50);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [lineCount, setLineCount] = useState(60); // 放射状ラインの数
+  const [lineLength, setLineLength] = useState(50); // ラインの長さ係数
+  const [gridCellSize, setGridCellSize] = useState(20); // グリッドセルのサイズ
+  const [gridSensitivity, setGridSensitivity] = useState(50); // グリッド感度
 
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -50,70 +49,6 @@ export default function App() {
     { name: "Impact", value: "Impact, sans-serif" },
     { name: "Comic Sans MS", value: "Comic Sans MS, cursive" },
   ];
-
-  // 初期化と自動再生
-  useEffect(() => {
-    if (!isInitialized && audioRef.current) {
-      // オーディオ要素に初期ファイルをセット
-      audioRef.current.src = defaultAudioPath;
-      
-      // ユーザーインタラクション後に自動再生を試みる
-      const handleFirstInteraction = () => {
-        // すでに初期化済みなら何もしない
-        if (isInitialized) return;
-        
-        setIsInitialized(true);
-        
-        // AudioContextを設定
-        setupAudioContext();
-        
-        // 少し遅延させて再生開始（DOMがきちんと準備されるまで）
-        setTimeout(() => {
-          audioRef.current.play()
-            .then(() => {
-              setIsPlaying(true);
-              visualize();
-            })
-            .catch(error => {
-              console.error("自動再生に失敗しました:", error);
-              // 自動再生ができない場合もUIは準備完了としてマーク
-              setIsInitialized(true);
-            });
-        }, 500);
-        
-        // イベントリスナーを削除
-        document.removeEventListener('click', handleFirstInteraction);
-        document.removeEventListener('touchstart', handleFirstInteraction);
-        document.removeEventListener('keydown', handleFirstInteraction);
-      };
-      
-      // ユーザーインタラクションを待機するイベントリスナーを追加
-      document.addEventListener('click', handleFirstInteraction);
-      document.addEventListener('touchstart', handleFirstInteraction);
-      document.addEventListener('keydown', handleFirstInteraction);
-      
-      // 最初の自動再生を試みる（多くのブラウザでは許可されていない可能性あり）
-      setupAudioContext();
-      audioRef.current.play()
-        .then(() => {
-          setIsPlaying(true);
-          setIsInitialized(true);
-          visualize();
-        })
-        .catch(error => {
-          console.log("ユーザーインタラクションが必要です:", error);
-          // エラーは無視（ユーザーインタラクション待ち）
-        });
-    }
-    
-    return () => {
-      // クリーンアップ関数
-      document.removeEventListener('click', () => {});
-      document.removeEventListener('touchstart', () => {});
-      document.removeEventListener('keydown', () => {});
-      cancelAnimationFrame(animationRef.current);
-    };
-  }, [isInitialized]);
 
   // Set canvas dimensions for Instagram Reel (9:16 aspect ratio)
   useEffect(() => {
@@ -146,6 +81,67 @@ export default function App() {
   useEffect(() => {
     initGridCells();
   }, [gridCellSize]);
+
+  // ページ読み込み時に音声を自動再生するための新しいuseEffect
+  useEffect(() => {
+    // オーディオ要素がマウントされた後に実行
+    if (audioRef.current) {
+      // オーディオのソースをデフォルトパスに設定
+      audioRef.current.src = defaultAudioPath;
+      
+      // ユーザーとのインタラクション後に再生を試みる
+      // 注意: ブラウザのポリシーにより、ユーザーインタラクションなしでの自動再生は制限されている場合があります
+      const autoPlayAudio = () => {
+        // AudioContextの設定
+        setupAudioContext();
+        
+        // 音声の再生を試みる
+        const playPromise = audioRef.current.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              // 再生成功
+              setIsPlaying(true);
+              visualize();
+              console.log("自動再生が成功しました");
+            })
+            .catch((error) => {
+              // 自動再生が失敗した場合（一般的にブラウザポリシーによる）
+              console.log("自動再生に失敗しました:", error);
+              // ここでユーザーに再生ボタンをクリックするよう促すメッセージを表示することも可能
+            });
+        }
+      };
+
+      // ページの読み込みが完了した時点で自動再生を試みる
+      window.addEventListener('load', autoPlayAudio);
+      
+      // ユーザーとのインタラクションイベントをリッスンして、その後に再生を試みる
+      const interactionEvents = ['click', 'touchstart', 'keydown'];
+      const interactionHandler = () => {
+        if (!isPlaying) {
+          autoPlayAudio();
+          // 一度再生を試みたら、これらのイベントリスナーを削除
+          interactionEvents.forEach(event => {
+            window.removeEventListener(event, interactionHandler);
+          });
+        }
+      };
+      
+      interactionEvents.forEach(event => {
+        window.addEventListener(event, interactionHandler);
+      });
+      
+      // クリーンアップ関数
+      return () => {
+        window.removeEventListener('load', autoPlayAudio);
+        interactionEvents.forEach(event => {
+          window.removeEventListener(event, interactionHandler);
+        });
+      };
+    }
+  }, []);
 
   // Refresh animation when font or visualization changes
   useEffect(() => {
@@ -250,9 +246,6 @@ export default function App() {
   
         if (audioRef.current) {
           audioRef.current.src = url;
-          if (isPlaying) {
-            audioRef.current.play();
-          }
         }
       } else {
         alert("Please upload an audio file (WAV, MP3, OGG, M4A, AAC, FLAC supported)");
@@ -276,18 +269,21 @@ export default function App() {
   };
 
   const togglePlay = () => {
-    if (!audioFile) return;
-
     if (isPlaying) {
       audioRef.current.pause();
       cancelAnimationFrame(animationRef.current);
+      setIsPlaying(false);
     } else {
       setupAudioContext();
-      audioRef.current.play();
-      visualize();
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+          visualize();
+        })
+        .catch(error => {
+          console.error("音声再生エラー:", error);
+        });
     }
-
-    setIsPlaying(!isPlaying);
   };
 
   const handleVisualChange = (type) => {
@@ -646,7 +642,6 @@ export default function App() {
         <div className="control-row">
           <button
             onClick={togglePlay}
-            disabled={!audioFile}
             className={`control-button ${!audioFile ? "disabled" : ""}`}
           >
             {isPlaying ? "Pause" : "Play"}
