@@ -47,6 +47,18 @@ export default function App() {
     { name: "Comic Sans MS", value: "Comic Sans MS, cursive" },
   ];
 
+  useEffect(() => {
+    // デフォルトの音声ファイルをセット
+    const defaultAudioPath = process.env.PUBLIC_URL + "/audio/edge-of-knowledge.wav";
+    setAudioFile(defaultAudioPath);
+    setFileName("edge-of-knowledge.wav");
+    setDisplayName("edge-of-knowledge");
+    
+    if (audioRef.current) {
+      audioRef.current.src = defaultAudioPath;
+    }
+  }, []);
+
   // Set canvas dimensions for Instagram Reel (9:16 aspect ratio)
   useEffect(() => {
     const setCanvasDimensions = () => {
@@ -67,31 +79,6 @@ export default function App() {
     setCanvasDimensions();
     window.addEventListener("resize", setCanvasDimensions);
     return () => window.removeEventListener("resize", setCanvasDimensions);
-  }, []);
-
-  // useEffectの追加：コンポーネントマウント時にデフォルトオーディオをロード
-  useEffect(() => {
-    // デフォルトオーディオファイルのパスを設定
-    const defaultAudioPath = "/audio/edge-of-knowledge.wav";
-    setAudioFile(defaultAudioPath);
-    setFileName("edge-of-knowledge.wav");
-    setDisplayName("edge-of-knowledge");
-    
-    if (audioRef.current) {
-      audioRef.current.src = defaultAudioPath;
-      
-      // 自動再生のセットアップ
-      setupAudioContext();
-      audioRef.current.play()
-        .then(() => {
-          setIsPlaying(true);
-          visualize();
-        })
-        .catch(err => {
-          console.error("自動再生に失敗しました:", err);
-          // エラーが発生した場合は自動再生を試みないようにする
-        });
-    }
   }, []);
 
   // Initialize particles
