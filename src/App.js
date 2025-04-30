@@ -2,9 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import "./App.css";
 
 export default function App() {
-  const [audioFile, setAudioFile] = useState(null);
-  const [fileName, setFileName] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  // デフォルトの音声ファイルのパスを設定
+  const defaultAudioPath = "/audio/edge of knowledge.wav";
+  
+  const [audioFile, setAudioFile] = useState(defaultAudioPath);
+  const [fileName, setFileName] = useState("edge of knowledge.wav");
+  const [displayName, setDisplayName] = useState("edge of knowledge");
   const [isPlaying, setIsPlaying] = useState(false);
   const [showFileName, setShowFileName] = useState(true);
   const [fontSize, setFontSize] = useState(16);
@@ -25,6 +28,7 @@ export default function App() {
   const [lineLength, setLineLength] = useState(50);
   const [gridCellSize, setGridCellSize] = useState(20);
   const [gridSensitivity, setGridSensitivity] = useState(50);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -35,9 +39,6 @@ export default function App() {
   const animationRef = useRef(null);
   const particlesRef = useRef([]);
   const gridCellsRef = useRef([]);
-
-  // デフォルトのオーディオファイルパス
-  const defaultAudioPath = "music/edge of knowledge.wav";
 
   // Font options
   const fontOptions = [
@@ -50,21 +51,69 @@ export default function App() {
     { name: "Comic Sans MS", value: "Comic Sans MS, cursive" },
   ];
 
-  // デフォルトのオーディオファイルを読み込む
+  // 初期化と自動再生
   useEffect(() => {
-    loadDefaultAudio();
-  }, []);
-
-  // デフォルトのオーディオファイルを読み込む関数
-  const loadDefaultAudio = () => {
-    setAudioFile(defaultAudioPath);
-    setFileName("edge of knowledge.wav");
-    setDisplayName("edge of knowledge");
-    
-    if (audioRef.current) {
+    if (!isInitialized && audioRef.current) {
+      // オーディオ要素に初期ファイルをセット
       audioRef.current.src = defaultAudioPath;
+      
+      // ユーザーインタラクション後に自動再生を試みる
+      const handleFirstInteraction = () => {
+        // すでに初期化済みなら何もしない
+        if (isInitialized) return;
+        
+        setIsInitialized(true);
+        
+        // AudioContextを設定
+        setupAudioContext();
+        
+        // 少し遅延させて再生開始（DOMがきちんと準備されるまで）
+        setTimeout(() => {
+          audioRef.current.play()
+            .then(() => {
+              setIsPlaying(true);
+              visualize();
+            })
+            .catch(error => {
+              console.error("自動再生に失敗しました:", error);
+              // 自動再生ができない場合もUIは準備完了としてマーク
+              setIsInitialized(true);
+            });
+        }, 500);
+        
+        // イベントリスナーを削除
+        document.removeEventListener('click', handleFirstInteraction);
+        document.removeEventListener('touchstart', handleFirstInteraction);
+        document.removeEventListener('keydown', handleFirstInteraction);
+      };
+      
+      // ユーザーインタラクションを待機するイベントリスナーを追加
+      document.addEventListener('click', handleFirstInteraction);
+      document.addEventListener('touchstart', handleFirstInteraction);
+      document.addEventListener('keydown', handleFirstInteraction);
+      
+      // 最初の自動再生を試みる（多くのブラウザでは許可されていない可能性あり）
+      setupAudioContext();
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+          setIsInitialized(true);
+          visualize();
+        })
+        .catch(error => {
+          console.log("ユーザーインタラクションが必要です:", error);
+          // エラーは無視（ユーザーインタラクション待ち）
+        });
     }
-  };
+    
+    return () => {
+      // クリーンアップ関数
+      document.removeEventListener('click', () => {});
+      document.removeEventListener('touchstart', () => {});
+      document.removeEventListener('keydown', () => {});
+      cancelAnimationFrame(animationRef.current);
+    };
+  }, [isInitialized]);
 
   // Set canvas dimensions for Instagram Reel (9:16 aspect ratio)
   useEffect(() => {
@@ -201,6 +250,9 @@ export default function App() {
   
         if (audioRef.current) {
           audioRef.current.src = url;
+          if (isPlaying) {
+            audioRef.current.play();
+          }
         }
       } else {
         alert("Please upload an audio file (WAV, MP3, OGG, M4A, AAC, FLAC supported)");
@@ -582,15 +634,8 @@ export default function App() {
           className="file-input"
         />
         <label htmlFor="file-input" className="file-input-label">
-          Choose audio file
+          Choose .wav file
         </label>
-        <button 
-          onClick={loadDefaultAudio} 
-          className="file-input-label"
-          style={{ marginLeft: '10px' }}
-        >
-          デフォルト音楽を読み込む
-        </button>
       </div>
 
       {fileName && (
