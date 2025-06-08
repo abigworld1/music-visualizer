@@ -28,6 +28,10 @@ export default function App() {
   const [gridCellSize, setGridCellSize] = useState(20);
   const [gridSensitivity, setGridSensitivity] = useState(50);
 
+  const [bgImage, setBgImage] = useState(null);      // 背景画像の URL 保存用（任意で UI 表示に使う）
+  const [bgDarkness, setBgDarkness] = useState(0.4); // 0〜1 で暗さを制御
+  const bgImageRef = useRef(null);                   // <img> オブジェクト保持用
+
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
   const audioRef = useRef(null);
@@ -37,6 +41,25 @@ export default function App() {
   const animationRef = useRef(null);
   const particlesRef = useRef([]);
   const gridCellsRef = useRef([]);
+  const bgDarknessRef = useRef(bgDarkness);
+
+  useEffect(() => {
+    bgDarknessRef.current = bgDarkness;
+  }, [bgDarkness]);
+
+  const handleBgImageChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    bgImageRef.current = img;   // Canvas 描画用
+    setBgImage(url);            // （任意）ファイル名表示などに使う場合
+  };
+  img.src = url;
+};
+
 
   // Font options
   const fontOptions = [
@@ -279,8 +302,16 @@ export default function App() {
       // Calculate average volume
       const avgVolume = calculateAverageVolume(dataArray);
 
-      ctx.fillStyle = "rgb(20, 20, 20)";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      if (bgImageRef.current) {
+        ctx.drawImage(bgImageRef.current, 0, 0, WIDTH, HEIGHT);   // 画像をキャンバス全面に
+        if (bgDarknessRef.current > 0) {                                     // 暗さオーバーレイ
+          ctx.fillStyle = `rgba(0,0,0,${bgDarknessRef.current})`;
+          ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        }
+      } else {
+        ctx.fillStyle = "rgb(20, 20, 20)";  // 画像が無いときは従来どおり
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      }
 
       // Bar visualization
       if (selectedVisuals.bars) {
@@ -608,6 +639,37 @@ export default function App() {
       )}
 
       <div className="control-panel">
+      {/* === 背景画像アップロード === */}
+        <div className="control-row">
+          <input
+            id="bg-file-input"
+            type="file"
+            accept="image/*"
+            onChange={handleBgImageChange}
+            className="file-input"
+          />
+          <label htmlFor="bg-file-input" className="file-input-label">
+            Choose Background Image
+          </label>
+        </div>
+
+        {/* === 背景暗さスライダー（画像選択後に表示）=== */}
+        {bgImageRef.current && (
+          <div className="control-row">
+            <div className="slider-container">
+              <label>Background Darkness: {(bgDarkness * 100).toFixed(0)}%</label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={bgDarkness * 100}
+                onChange={(e) => setBgDarkness(Number(e.target.value) / 100)}
+                className="slider"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="control-row">
           <button
             onClick={togglePlay}
