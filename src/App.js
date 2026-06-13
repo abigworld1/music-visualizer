@@ -13,6 +13,7 @@ export default function App() {
   const [fontSize, setFontSize] = useState(16);
   const [selectedFont, setSelectedFont] = useState("Arial, sans-serif");
   const [selectedVisuals, setSelectedVisuals] = useState({
+    ink: true,
     bars: true,
     circles: true,
     waves: true,
@@ -28,6 +29,8 @@ export default function App() {
   const [lineLength, setLineLength] = useState(50);
   const [gridCellSize, setGridCellSize] = useState(20);
   const [gridSensitivity, setGridSensitivity] = useState(50);
+  const [inkDensity, setInkDensity] = useState(500);  // インク粒の数
+  const [inkFlow, setInkFlow] = useState(50);          // 水流の速さ（0〜100）
 
   const [bgImage, setBgImage] = useState(null);      // 背景画像の URL 保存用（任意で UI 表示に使う）
   const [bgDarkness, setBgDarkness] = useState(0.4); // 0〜1 で暗さを制御
@@ -43,6 +46,10 @@ export default function App() {
   const particlesRef = useRef([]);
   const gridCellsRef = useRef([]);
   const bgDarknessRef = useRef(bgDarkness);
+  const inkCanvasRef = useRef(null);     // インク層のオフスクリーンキャンバス（残像で拡散を表現）
+  const inkParticlesRef = useRef([]);    // インク粒のプール
+  const inkBrushRef = useRef(null);      // にじみ用のソフトな円ブラシ（一度だけ生成）
+  const inkBeatRef = useRef({ bassAvg: 0, lastBeat: 0, cx: 0, cy: 0, t: 0 }); // ビート検出・噴出点・時間
 
   useEffect(() => {
     bgDarknessRef.current = bgDarkness;
@@ -139,6 +146,8 @@ export default function App() {
     lineLength,
     gridCellSize,
     gridSensitivity,
+    inkDensity,
+    inkFlow,
   ]);
 
   // Snow particle initialization
@@ -294,6 +303,16 @@ export default function App() {
     // For smoothing polar line values
     let prevPolarData = new Array(lineCount).fill(0);
 
+    // インク用の流れ場（curl 風の滑らかな渦）。位置と時間から流れの向き（角度）を返す
+    const inkFlowAngle = (x, y, t) => {
+      const s = 0.0042;
+      return (
+        Math.sin(x * s + t * 0.31) +
+        Math.cos(y * s * 1.3 - t * 0.27) +
+        Math.sin((x + y) * s * 0.6 + t * 0.2)
+      ) * 1.7;
+    };
+
     const draw = () => {
       animationRef.current = requestAnimationFrame(draw);
 
@@ -312,6 +331,150 @@ export default function App() {
       } else {
         ctx.fillStyle = "rgb(20, 20, 20)";  // 画像が無いときは従来どおり
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      }
+
+      // === Ink fluid (墨汁が水に広がるような、音に反応する流体) ===
+      // 残像が残るオフスクリーン層に、流れ場に沿って動く無数のソフトな粒を
+      // 加算合成でスタンプし続けることで、にじみ・渦・拡散を表現する。
+      if (selectedVisuals.ink) {
+        // インクが蓄積・減衰するオフスクリーンキャンバス（メイン解像度に追従）
+        if (!inkCanvasRef.current) inkCanvasRef.current = document.createElement("canvas");
+        const inkCanvas = inkCanvasRef.current;
+        if (inkCanvas.width !== WIDTH || inkCanvas.height !== HEIGHT) {
+          inkCanvas.width = WIDTH;
+          inkCanvas.height = HEIGHT;
+        }
+        const ictx = inkCanvas.getContext("2d");
+
+        // にじみ用のソフトな円ブラシを一度だけ生成
+        if (!inkBrushRef.current) {
+          const b = document.createElement("canvas");
+          b.width = b.height = 128;
+          const bctx = b.getContext("2d");
+          const grad = bctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+          grad.addColorStop(0, "rgba(255,255,255,0.9)");
+          grad.addColorStop(0.3, "rgba(220,225,235,0.5)");
+          grad.addColorStop(1, "rgba(255,255,255,0)");
+          bctx.fillStyle = grad;
+          bctx.fillRect(0, 0, 128, 128);
+          inkBrushRef.current = b;
+        }
+        const brush = inkBrushRef.current;
+
+        const beat = inkBeatRef.current;
+
+        // 粒を噴出点に再投入する（拡散の起点）
+        const respawnInk = (p, cx, cy, spread) => {
+          const a = Math.random() * Math.PI * 2;
+          const rr = Math.random() * spread;
+          p.x = cx + Math.cos(a) * rr;
+          p.y = cy + Math.sin(a) * rr;
+          p.vx = Math.cos(a) * 0.4;
+          p.vy = Math.sin(a) * 0.4;
+          p.maxLife = 120 + Math.random() * 200;
+          p.life = p.maxLife;
+          p.r0 = 6 + Math.random() * 16;
+          p.baseAlpha = 0.04 + Math.random() * 0.07;
+        };
+
+        // 密度に合わせてプールを用意（変更時は作り直す）
+        let inkP = inkParticlesRef.current;
+        if (inkP.length !== inkDensity) {
+          inkP = [];
+          const spread = Math.max(WIDTH, HEIGHT) / 2;
+          for (let i = 0; i < inkDensity; i++) {
+            const p = {};
+            respawnInk(p, Math.random() * WIDTH, Math.random() * HEIGHT, spread);
+            p.life = Math.random() * p.maxLife; // 寿命をばらけさせて一斉消滅を防ぐ
+            inkP.push(p);
+          }
+          inkParticlesRef.current = inkP;
+          beat.cx = WIDTH / 2;
+          beat.cy = HEIGHT / 2;
+        }
+
+        // 水流がゆっくり変化するよう時間を進める
+        beat.t += 0.016;
+        const t = beat.t;
+
+        // 低音でビート検出 → インクを“落とす”ような噴出を起こす
+        let bass = 0;
+        const bassBins = Math.max(1, Math.floor(bufferLength * 0.06));
+        for (let i = 0; i < bassBins; i++) bass += dataArray[i];
+        bass /= bassBins;
+        beat.bassAvg = beat.bassAvg * 0.92 + bass * 0.08;
+        const now = performance.now();
+        let burst = 0;
+        if (bass > beat.bassAvg * 1.25 && bass > 45 && now - beat.lastBeat > 110) {
+          beat.lastBeat = now;
+          beat.cx = WIDTH * (0.2 + Math.random() * 0.6);
+          beat.cy = HEIGHT * (0.2 + Math.random() * 0.6);
+          burst = Math.floor(inkDensity * 0.12);
+        } else {
+          // 噴出点をゆっくり漂わせる
+          beat.cx = Math.max(0, Math.min(WIDTH, beat.cx + (Math.random() - 0.5) * 6));
+          beat.cy = Math.max(0, Math.min(HEIGHT, beat.cy + (Math.random() - 0.5) * 6));
+        }
+
+        // 既存のインクを少しずつ減衰させ、残像で“水ににじむ”表現に
+        ictx.globalCompositeOperation = "source-over";
+        ictx.fillStyle = "rgba(0,0,0,0.035)";
+        ictx.fillRect(0, 0, WIDTH, HEIGHT);
+
+        // 粒は加算合成でスタンプ（重なるほど濃く・明るくなる）
+        ictx.globalCompositeOperation = "lighter";
+
+        const inkVolume = avgVolume / 255;
+        const flowSpeed = 0.5 + (inkFlow / 100) * 2.6;
+        const audioBoost = 1 + inkVolume * 1.5 + (bass / 255) * 1.2;
+
+        let burstDone = 0;
+        for (let i = 0; i < inkP.length; i++) {
+          const p = inkP[i];
+
+          // 流れ場に沿って向きを滑らかに変えながら進む
+          const ang = inkFlowAngle(p.x, p.y, t);
+          p.vx += (Math.cos(ang) - p.vx) * 0.09;
+          p.vy += (Math.sin(ang) - p.vy) * 0.09;
+          const sp = flowSpeed * audioBoost;
+          p.x += p.vx * sp;
+          p.y += p.vy * sp;
+          p.life -= 1;
+
+          // 寿命切れ・画面外は噴出点へ再投入
+          if (
+            p.life <= 0 ||
+            p.x < -60 || p.x > WIDTH + 60 ||
+            p.y < -60 || p.y > HEIGHT + 60
+          ) {
+            const isBurst = burstDone < burst;
+            respawnInk(p, beat.cx, beat.cy, isBurst ? 14 : 26);
+            if (isBurst) burstDone++;
+            continue;
+          }
+
+          const progress = 1 - p.life / p.maxLife; // 0→1
+          const r = p.r0 * (1 + progress * 3.2);     // 進むほど大きく＝拡散
+          const a = Math.sin(progress * Math.PI) * p.baseAlpha * (0.5 + audioBoost * 0.5);
+          if (a <= 0) continue;
+          ictx.globalAlpha = a;
+          ictx.drawImage(brush, p.x - r, p.y - r, r * 2, r * 2);
+        }
+
+        // 噴出枠が余っていれば生きている粒も巻き込み、はっきりした“ひと噴き”に
+        for (let i = 0; burstDone < burst && i < inkP.length; i++) {
+          respawnInk(inkP[i], beat.cx, beat.cy, 14);
+          burstDone++;
+        }
+
+        ictx.globalAlpha = 1;
+        ictx.globalCompositeOperation = "source-over";
+
+        // メインキャンバスへ加算合成で重ねる（水中で発光するインク）
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.drawImage(inkCanvas, 0, 0);
+        ctx.restore();
       }
 
       // Bar visualization
@@ -676,6 +839,16 @@ export default function App() {
               <div className="visual-option">
                 <input
                   type="checkbox"
+                  id="ink"
+                  checked={selectedVisuals.ink}
+                  onChange={() => handleVisualChange("ink")}
+                />
+                <label htmlFor="ink">Ink (Fluid)</label>
+              </div>
+
+              <div className="visual-option">
+                <input
+                  type="checkbox"
                   id="bars"
                   checked={selectedVisuals.bars}
                   onChange={() => handleVisualChange("bars")}
@@ -733,6 +906,35 @@ export default function App() {
                 <label htmlFor="spectrogramGrid">Spectrogram Grid</label>
               </div>
             </div>
+
+            {/* Ink adjustments (only shown if Ink is selected) */}
+            {selectedVisuals.ink && (
+              <>
+                <div className="slider-container">
+                  <label>Ink Density: {inkDensity}</label>
+                  <input
+                    type="range"
+                    min="100"
+                    max="1500"
+                    step="50"
+                    value={inkDensity}
+                    onChange={(e) => setInkDensity(parseInt(e.target.value))}
+                    className="sensitivity-slider"
+                  />
+                </div>
+                <div className="slider-container">
+                  <label>Ink Flow: {inkFlow}%</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={inkFlow}
+                    onChange={(e) => setInkFlow(parseInt(e.target.value))}
+                    className="sensitivity-slider"
+                  />
+                </div>
+              </>
+            )}
 
             {/* Wave sensitivity adjustment (only shown if Waves is selected) */}
             {selectedVisuals.waves && (
