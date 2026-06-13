@@ -8,6 +8,7 @@ export default function App() {
   const [customText, setCustomText] = useState(""); // カスタムテキスト用の状態
   const [useCustomText, setUseCustomText] = useState(false); // カスタムテキストを使用するかどうかのフラグ
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showSettings, setShowSettings] = useState(false); // 詳細設定パネルの表示フラグ（デフォルトは非表示）
   const [showFileName, setShowFileName] = useState(true);
   const [fontSize, setFontSize] = useState(16);
   const [selectedFont, setSelectedFont] = useState("Arial, sans-serif");
@@ -74,10 +75,10 @@ export default function App() {
 
   useEffect(() => {
     // デフォルトの音声ファイルをセット
-    const defaultAudioPath = process.env.PUBLIC_URL + "/audio/edge-of-knowledge.wav";
+    const defaultAudioPath = process.env.PUBLIC_URL + "/audio/INFlation.wav";
     setAudioFile(defaultAudioPath);
-    setFileName("edge-of-knowledge.wav");
-    setDisplayName("edge-of-knowledge");
+    setFileName("INFlation.wav");
+    setDisplayName("INFlation");
     
     if (audioRef.current) {
       audioRef.current.src = defaultAudioPath;
@@ -221,7 +222,7 @@ export default function App() {
           audioRef.current.src = url;
         }
       } else {
-        alert("Please upload an audio file (WAV, MP3, OGG, M4A, AAC, FLAC supported)");
+        alert("Please choose an audio file (WAV, MP3, OGG, M4A, AAC, FLAC, or MP4 supported)");
       }
     }
   };
@@ -621,326 +622,337 @@ export default function App() {
     <div className="app">
       <h1>Music Visualizer</h1>
 
-      <div className="input-section">
-        <input
-          type="file"
-          accept="audio/*,.wav,.mp3,.ogg,.m4a,.aac,.flac"
-          onChange={handleFileChange}
-          id="file-input"
-          className="file-input"
-        />
-        <label htmlFor="file-input" className="file-input-label">
-          Choose .wav file
-        </label>
-      </div>
-
-      {fileName && (
-        <div className="file-info">Selected file: {displayName}</div>
-      )}
-
-      <div className="control-panel">
-      {/* === 背景画像アップロード === */}
-        <div className="control-row">
+      {/* === 主要コントロール: ファイル選択 + 再生（常に表示）=== */}
+      <div className="primary-controls">
+        <div className="input-section">
           <input
-            id="bg-file-input"
             type="file"
-            accept="image/*"
-            onChange={handleBgImageChange}
+            accept="audio/*,.wav,.mp3,.ogg,.m4a,.aac,.flac,.mp4"
+            onChange={handleFileChange}
+            id="file-input"
             className="file-input"
           />
-          <label htmlFor="bg-file-input" className="file-input-label">
-            Choose Background Image
+          <label htmlFor="file-input" className="file-input-label">
+            🎵 Choose audio file
           </label>
         </div>
 
-        {/* === 背景暗さスライダー（画像選択後に表示）=== */}
-        {bgImageRef.current && (
-          <div className="control-row">
-            <div className="slider-container">
-              <label>Background Darkness: {(bgDarkness * 100).toFixed(0)}%</label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={bgDarkness * 100}
-                onChange={(e) => setBgDarkness(Number(e.target.value) / 100)}
-                className="slider"
-              />
-            </div>
-          </div>
+        {fileName && (
+          <div className="file-info">{displayName}</div>
         )}
 
-        <div className="control-row">
-          <button
-            onClick={togglePlay}
-            disabled={!audioFile}
-            className={`control-button ${!audioFile ? "disabled" : ""}`}
-          >
-            {isPlaying ? "Pause" : "Play"}
-          </button>
-
-          <div className="control-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={showFileName}
-                onChange={() => setShowFileName(!showFileName)}
-              />
-              Show Text
-            </label>
-          </div>
-        </div>
-
-        {/* テキスト設定セクション */}
-        {showFileName && (
-          <div className="control-row">
-            <div className="control-group text-display-option">
-              <label>
-                <input
-                  type="radio"
-                  checked={!useCustomText}
-                  onChange={() => setUseCustomText(false)}
-                />
-                Use Filename
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  checked={useCustomText}
-                  onChange={() => setUseCustomText(true)}
-                />
-                Use Custom Text
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* カスタムテキスト入力フィールド（カスタムテキストモードが選択されている場合のみ表示） */}
-        {showFileName && useCustomText && (
-          <div className="control-row">
-            <div className="text-input-container">
-              <input
-                type="text"
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                placeholder="Enter your custom text"
-                className="custom-text-input"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Font settings */}
-        <div className="control-row">
-          <div className="slider-container">
-            <label>Font Size: {fontSize}px</label>
-            <input
-              type="range"
-              min="8"
-              max="64"
-              value={fontSize}
-              onChange={(e) => setFontSize(parseInt(e.target.value))}
-              className="slider"
-            />
-          </div>
-
-          <div className="control-group">
-            <label>Font:</label>
-            <select
-              value={selectedFont}
-              onChange={(e) => setSelectedFont(e.target.value)}
-              className="select"
-            >
-              {fontOptions.map((font) => (
-                <option key={font.name} value={font.value}>
-                  {font.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Visualization selection */}
-        <div className="control-row">
-          <label>Visualizations:</label>
-          <div className="checkbox-group">
-            <div className="visual-option">
-              <input
-                type="checkbox"
-                id="bars"
-                checked={selectedVisuals.bars}
-                onChange={() => handleVisualChange("bars")}
-              />
-              <label htmlFor="bars">Bars</label>
-            </div>
-
-            <div className="visual-option">
-              <input
-                type="checkbox"
-                id="circles"
-                checked={selectedVisuals.circles}
-                onChange={() => handleVisualChange("circles")}
-              />
-              <label htmlFor="circles">Circles</label>
-            </div>
-
-            <div className="visual-option">
-              <input
-                type="checkbox"
-                id="waves"
-                checked={selectedVisuals.waves}
-                onChange={() => handleVisualChange("waves")}
-              />
-              <label htmlFor="waves">Waves</label>
-            </div>
-
-            <div className="visual-option">
-              <input
-                type="checkbox"
-                id="particles"
-                checked={selectedVisuals.particles}
-                onChange={() => handleVisualChange("particles")}
-              />
-              <label htmlFor="particles">Snow</label>
-            </div>
-
-            <div className="visual-option">
-              <input
-                type="checkbox"
-                id="polarLines"
-                checked={selectedVisuals.polarLines}
-                onChange={() => handleVisualChange("polarLines")}
-              />
-              <label htmlFor="polarLines">Polar Lines</label>
-            </div>
-
-            <div className="visual-option">
-              <input
-                type="checkbox"
-                id="spectrogramGrid"
-                checked={selectedVisuals.spectrogramGrid}
-                onChange={() => handleVisualChange("spectrogramGrid")}
-              />
-              <label htmlFor="spectrogramGrid">Spectrogram Grid</label>
-            </div>
-          </div>
-        </div>
-
-        {/* Wave sensitivity adjustment (only shown if Waves is selected) */}
-        {selectedVisuals.waves && (
-          <div className="control-row">
-            <div className="slider-container">
-              <label>Wave Sensitivity: {waveAmplitude}%</label>
-              <input
-                type="range"
-                min="5"
-                max="100"
-                value={waveAmplitude}
-                onChange={(e) => setWaveAmplitude(parseInt(e.target.value))}
-                className="sensitivity-slider"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Particle count adjustment (only shown if Particles is selected) */}
-        {selectedVisuals.particles && (
-          <div className="control-row">
-            <div className="slider-container">
-              <label>Snow Density: {particleCount}</label>
-              <input
-                type="range"
-                min="10"
-                max="200"
-                value={particleCount}
-                onChange={(e) => setParticleCount(parseInt(e.target.value))}
-                className="sensitivity-slider"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Snow size adjustment (only shown if Particles is selected) */}
-        {selectedVisuals.particles && (
-          <div className="control-row">
-            <div className="slider-container">
-              <label>Snow Size: {snowSize}</label>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={snowSize}
-                onChange={(e) => setSnowSize(parseInt(e.target.value))}
-                className="sensitivity-slider"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Polar Lines adjustments (only shown if Polar Lines is selected) */}
-        {selectedVisuals.polarLines && (
-          <>
-            <div className="control-row">
-              <div className="slider-container">
-                <label>Line Count: {lineCount}</label>
-                <input
-                  type="range"
-                  min="10"
-                  max="180"
-                  value={lineCount}
-                  onChange={(e) => setLineCount(parseInt(e.target.value))}
-                  className="sensitivity-slider"
-                />
-              </div>
-            </div>
-            <div className="control-row">
-              <div className="slider-container">
-                <label>Line Length: {lineLength}%</label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={lineLength}
-                  onChange={(e) => setLineLength(parseInt(e.target.value))}
-                  className="sensitivity-slider"
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* スペクトログラムグリッド設定 (only shown if Spectrogram Grid is selected) */}
-        {selectedVisuals.spectrogramGrid && (
-          <>
-            <div className="control-row">
-              <div className="slider-container">
-                <label>Grid Cell Size: {gridCellSize}px</label>
-                <input
-                  type="range"
-                  min="10"
-                  max="50"
-                  value={gridCellSize}
-                  onChange={(e) => setGridCellSize(parseInt(e.target.value))}
-                  className="sensitivity-slider"
-                />
-              </div>
-            </div>
-            <div className="control-row">
-              <div className="slider-container">
-                <label>Grid Sensitivity: {gridSensitivity}%</label>
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={gridSensitivity}
-                  onChange={(e) => setGridSensitivity(parseInt(e.target.value))}
-                  className="sensitivity-slider"
-                />
-              </div>
-            </div>
-          </>
-        )}
+        <button
+          onClick={togglePlay}
+          disabled={!audioFile}
+          className={`play-button ${isPlaying ? "playing" : ""} ${
+            !audioFile ? "disabled" : ""
+          }`}
+        >
+          {isPlaying ? "⏸ Pause" : "▶ Play"}
+        </button>
       </div>
+
+      {/* === 詳細設定の開閉トグル（新規ユーザーの混乱を避けるためデフォルト非表示）=== */}
+      <button
+        type="button"
+        className="settings-toggle"
+        onClick={() => setShowSettings(!showSettings)}
+        aria-expanded={showSettings}
+      >
+        {showSettings ? "▴ Hide settings" : "▾ Customize visuals & text"}
+      </button>
+
+      {/* === 詳細設定パネル === */}
+      {showSettings && (
+        <div className="control-panel">
+          {/* ---- 視覚効果セクション ---- */}
+          <section className="settings-section">
+            <h2 className="settings-section-title">Visualizations</h2>
+            <p className="settings-section-hint">
+              Toggle the effects you want layered on the canvas.
+            </p>
+
+            <div className="checkbox-group">
+              <div className="visual-option">
+                <input
+                  type="checkbox"
+                  id="bars"
+                  checked={selectedVisuals.bars}
+                  onChange={() => handleVisualChange("bars")}
+                />
+                <label htmlFor="bars">Bars</label>
+              </div>
+
+              <div className="visual-option">
+                <input
+                  type="checkbox"
+                  id="circles"
+                  checked={selectedVisuals.circles}
+                  onChange={() => handleVisualChange("circles")}
+                />
+                <label htmlFor="circles">Circles</label>
+              </div>
+
+              <div className="visual-option">
+                <input
+                  type="checkbox"
+                  id="waves"
+                  checked={selectedVisuals.waves}
+                  onChange={() => handleVisualChange("waves")}
+                />
+                <label htmlFor="waves">Waves</label>
+              </div>
+
+              <div className="visual-option">
+                <input
+                  type="checkbox"
+                  id="particles"
+                  checked={selectedVisuals.particles}
+                  onChange={() => handleVisualChange("particles")}
+                />
+                <label htmlFor="particles">Snow</label>
+              </div>
+
+              <div className="visual-option">
+                <input
+                  type="checkbox"
+                  id="polarLines"
+                  checked={selectedVisuals.polarLines}
+                  onChange={() => handleVisualChange("polarLines")}
+                />
+                <label htmlFor="polarLines">Polar Lines</label>
+              </div>
+
+              <div className="visual-option">
+                <input
+                  type="checkbox"
+                  id="spectrogramGrid"
+                  checked={selectedVisuals.spectrogramGrid}
+                  onChange={() => handleVisualChange("spectrogramGrid")}
+                />
+                <label htmlFor="spectrogramGrid">Spectrogram Grid</label>
+              </div>
+            </div>
+
+            {/* Wave sensitivity adjustment (only shown if Waves is selected) */}
+            {selectedVisuals.waves && (
+              <div className="slider-container">
+                <label>Wave Sensitivity: {waveAmplitude}%</label>
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  value={waveAmplitude}
+                  onChange={(e) => setWaveAmplitude(parseInt(e.target.value))}
+                  className="sensitivity-slider"
+                />
+              </div>
+            )}
+
+            {/* Particle count adjustment (only shown if Particles is selected) */}
+            {selectedVisuals.particles && (
+              <div className="slider-container">
+                <label>Snow Density: {particleCount}</label>
+                <input
+                  type="range"
+                  min="10"
+                  max="200"
+                  value={particleCount}
+                  onChange={(e) => setParticleCount(parseInt(e.target.value))}
+                  className="sensitivity-slider"
+                />
+              </div>
+            )}
+
+            {/* Snow size adjustment (only shown if Particles is selected) */}
+            {selectedVisuals.particles && (
+              <div className="slider-container">
+                <label>Snow Size: {snowSize}</label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={snowSize}
+                  onChange={(e) => setSnowSize(parseInt(e.target.value))}
+                  className="sensitivity-slider"
+                />
+              </div>
+            )}
+
+            {/* Polar Lines adjustments (only shown if Polar Lines is selected) */}
+            {selectedVisuals.polarLines && (
+              <>
+                <div className="slider-container">
+                  <label>Line Count: {lineCount}</label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="180"
+                    value={lineCount}
+                    onChange={(e) => setLineCount(parseInt(e.target.value))}
+                    className="sensitivity-slider"
+                  />
+                </div>
+                <div className="slider-container">
+                  <label>Line Length: {lineLength}%</label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={lineLength}
+                    onChange={(e) => setLineLength(parseInt(e.target.value))}
+                    className="sensitivity-slider"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* スペクトログラムグリッド設定 (only shown if Spectrogram Grid is selected) */}
+            {selectedVisuals.spectrogramGrid && (
+              <>
+                <div className="slider-container">
+                  <label>Grid Cell Size: {gridCellSize}px</label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="50"
+                    value={gridCellSize}
+                    onChange={(e) => setGridCellSize(parseInt(e.target.value))}
+                    className="sensitivity-slider"
+                  />
+                </div>
+                <div className="slider-container">
+                  <label>Grid Sensitivity: {gridSensitivity}%</label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={gridSensitivity}
+                    onChange={(e) =>
+                      setGridSensitivity(parseInt(e.target.value))
+                    }
+                    className="sensitivity-slider"
+                  />
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* ---- テキストオーバーレイセクション ---- */}
+          <section className="settings-section">
+            <h2 className="settings-section-title">Text overlay</h2>
+
+            <div className="control-group">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={showFileName}
+                  onChange={() => setShowFileName(!showFileName)}
+                />
+                Show text on canvas
+              </label>
+            </div>
+
+            {showFileName && (
+              <div className="control-group text-display-option">
+                <label>
+                  <input
+                    type="radio"
+                    checked={!useCustomText}
+                    onChange={() => setUseCustomText(false)}
+                  />
+                  Use filename
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    checked={useCustomText}
+                    onChange={() => setUseCustomText(true)}
+                  />
+                  Use custom text
+                </label>
+              </div>
+            )}
+
+            {showFileName && useCustomText && (
+              <div className="text-input-container">
+                <input
+                  type="text"
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder="Enter your custom text"
+                  className="custom-text-input"
+                />
+              </div>
+            )}
+
+            {showFileName && (
+              <>
+                <div className="slider-container">
+                  <label>Font Size: {fontSize}px</label>
+                  <input
+                    type="range"
+                    min="8"
+                    max="64"
+                    value={fontSize}
+                    onChange={(e) => setFontSize(parseInt(e.target.value))}
+                    className="slider"
+                  />
+                </div>
+
+                <div className="control-group">
+                  <label>Font:</label>
+                  <select
+                    value={selectedFont}
+                    onChange={(e) => setSelectedFont(e.target.value)}
+                    className="select"
+                  >
+                    {fontOptions.map((font) => (
+                      <option key={font.name} value={font.value}>
+                        {font.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* ---- 背景セクション ---- */}
+          <section className="settings-section">
+            <h2 className="settings-section-title">Background</h2>
+
+            <div className="control-group">
+              <input
+                id="bg-file-input"
+                type="file"
+                accept="image/*"
+                onChange={handleBgImageChange}
+                className="file-input"
+              />
+              <label htmlFor="bg-file-input" className="file-input-label secondary">
+                🖼 Choose background image
+              </label>
+            </div>
+
+            {bgImageRef.current && (
+              <div className="slider-container">
+                <label>
+                  Background Darkness: {(bgDarkness * 100).toFixed(0)}%
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={bgDarkness * 100}
+                  onChange={(e) => setBgDarkness(Number(e.target.value) / 100)}
+                  className="slider"
+                />
+              </div>
+            )}
+          </section>
+        </div>
+      )}
 
       <div ref={canvasContainerRef} className="canvas-container">
         <canvas ref={canvasRef} className="canvas"></canvas>
